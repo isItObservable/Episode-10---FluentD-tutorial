@@ -115,7 +115,7 @@ Add the following ports :
 kubectl apply -f istio/hipstershop_gateway.yaml
 ```
 
-### 3. Deploy Prometheuys
+### 3. Deploy Prometheus
 #### 1.Prometheus
 ```
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
