@@ -1,0 +1,183 @@
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-conf
+  namespace: dynatrace
+  labels:
+    app: fluentd
+    component: fluentd-conf
+data:
+  CLUSTER_ID: "CLUSTER_ID_TO_REPLACE"
+  AG_INGEST_URL: "https://fluentd-activegate:9999/e/ENVIRONMENT_ID_TO_REPLACE/api/v2/logs/ingest"
+  fluent.conf: |-
+    # Ingest logs from nodes
+        <source>
+          @type  forward
+          port 24224  bind 0.0.0.0
+          tag raw.kubernetes.*
+        </source>
+        # Detect exceptions in the log output and forward them as one log entry.
+        <match raw.kubernetes.**>
+          @id raw.kubernetes
+          @type detect_exceptions
+          remove_tag_prefix raw
+          message log
+          stream stream
+          multiline_flush_interval 5
+          max_bytes 500000
+          max_lines 1000
+        </match>
+        # Concatenate multi-line logs
+        <filter **>
+          @id filter_concat
+          @type concat
+          key message
+          multiline_end_regexp /\n$/
+          separator ""
+        </filter>
+        # Enrich with kubernetes metadata
+        <filter kubernetes.**>
+          @type kubernetes_metadata
+        </filter>
+        # Transform metadata to records
+        <filter kubernetes.**>
+          @type record_transformer
+          enable_ruby true
+            <record>
+              status ${ record.dig(:log, :severity) || record.dig(:log, :level) || (record["log"] =~ /\W?\berror\b\W?/i ? "ERROR" : (record["log"] =~ /\W?\bwarn\b\W?/i ? "WARN" : (record["log"] =~ /\W?\bdebug\b\W?/i ? "DEBUG" : (record["log"] =~ /\W?\binfo\b\W?/i ? "INFO" : "NONE")))) }
+              content ${record["log"]}
+              container.name ${record.dig("kubernetes","container_name")}
+              container.image.name ${record.dig("kubernetes","container_image").split(':')[0]}
+              container.image.tag ${record.dig("kubernetes","container_image").split(':')[1]}
+              dt.kubernetes.node.name ${record.dig("kubernetes","host")}
+              dt.kubernetes.node.system_uuid ${File.read("/sys/devices/virtual/dmi/id/product_uuid").strip}
+              k8s.pod.labels ${record.dig("kubernetes","labels")}
+              dt.kubernetes.cluster.id "#{ENV['CLUSTER_ID']}"
+              k8s.namespace.uid ${record.dig("kubernetes","namespace_id")}
+              k8s.namespace.name ${record.dig("kubernetes","namespace_name")}
+              k8s.pod.name ${record.dig("kubernetes","pod_name")}
+              k8s.pod.uid ${record.dig("kubernetes","pod_id")}
+            </record>
+            remove_keys log, stream, docker, kubernetes
+        </filter>
+
+
+    <match kubernetes.**>
+      @type              dynatrace
+      active_gate_url "#{ENV['AG_INGEST_URL']}"
+      api_token "#{ENV['LOG_INGEST_TOKEN']}"
+      ssl_verify_none    true
+    </match>
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd
+  namespace: dynatrace
+  labels:
+    k8s-app: fluentd-logging
+    version: v1
+spec:
+  selector:
+    matchLabels:
+      k8s-app: fluentd-logging
+      version: v1
+  template:
+    metadata:
+      labels:
+        k8s-app: fluentd-logging
+        version: v1
+    spec:
+      serviceAccountName: dynatrace-monitoring
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
+      initContainers:
+      - name: fluentd-permission-fix
+        image: busybox
+        command: [ "sh","-c","touch /var/log/fluentd.pos; chmod -R 777 /var/log/fluentd.pos; " ]
+        volumeMounts:
+          - name: var-log
+            mountPath: /var/log/
+      containers:
+      - name: fluentd
+        image: hrexed/fluend-dynatrace:0.2
+        resources:
+          limits:
+            cpu: 200m
+            memory: 400Mi
+            ephemeral-storage: 10Gi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+            ephemeral-storage: 10Gi
+        env:
+          - name: FLUENT_UID
+            value: "0"
+          - name: CLUSTER_ID
+            valueFrom:
+              configMapKeyRef:
+                name: fluentd-conf
+                key: CLUSTER_ID
+          - name: AG_INGEST_URL
+            valueFrom:
+              configMapKeyRef:
+                name: fluentd-conf
+                key: AG_INGEST_URL
+          - name: LOG_INGEST_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: tokens
+                key: log-ingest
+        volumeMounts:
+          - name: var-log
+            mountPath: /var/log
+            readOnly: true
+          - name: var-lib
+            mountPath: /var/lib
+            readOnly: true
+          - name: var-log-pos
+            mountPath: /var/log/fluentd.pos
+          - mountPath: /fluentd/etc/fluent.conf
+            name: data
+            subPath: fluent.conf
+            readOnly: true
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: var-log
+          hostPath:
+            path: /var/log/
+        - name: var-lib
+          hostPath:
+            path: /var/lib
+        - name: var-log-pos
+          hostPath:
+            path: /var/log/fluentd.pos
+            type: FileOrCreate
+        - name: data
+          configMap:
+            name: fluentd-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluentd-logging
+  namespace: dynatrace
+  labels:
+    app: fluentd
+    component: fluentd-logging
+spec:
+  ports:
+    - name: fluentbit # Default endpoint for OpenTelemetry receiver.
+      port: 24224
+      protocol: TCP
+      targetPort: 24224
+    - name: logging-api # Default endpoint for Jaeger gRPC receiver
+      port: 9999
+  selector:
+    k8s-app: fluentd-logging
+
+
+
+
