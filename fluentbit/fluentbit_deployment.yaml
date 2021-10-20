@@ -51,7 +51,7 @@ data:
         Name  forward
         Match   *
         Host    fluentd-logging.dynatrace.svc.cluster.local
-        Port    24284
+        Port    24224
 
 
   parsers.conf: |
