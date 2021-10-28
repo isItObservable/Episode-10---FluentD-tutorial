@@ -49,8 +49,8 @@ gcloud container clusters create onlineboutique \
 ```
 ## 3.Clone Github repo
 ```
-git clone https://github.com/dynatrace-perfclinics/K8s_observability_4_SRE
-cd K8s_observability_4_SRE
+git clone https://github.com/isItObservable/Episode-10---FluentD-tutorial.git
+cd Episode-10---FluentD-tutorial
 ```
 ## 4. Deploy the sample Application
 
