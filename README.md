@@ -86,7 +86,7 @@ istioctl install --set profile=demo -y
 #### b. Label the hipster-shop namespace
 
 Then we want to instruct istio to automatically inject the envoy Proxy to all the pods of our Hipster-shop application
-so we will label the namesapce : hipster-shop
+so we will label the namespace : hipster-shop
 ```
 kubectl label namespace hipster-shop istio-injection=enabled
 ```
