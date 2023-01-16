@@ -86,7 +86,7 @@ istioctl install --set profile=demo -y
 #### b. Label the hipster-shop namespace
 
 Then we want to instruct istio to automatically inject the envoy Proxy to all the pods of our Hipster-shop application
-so we will label the namesapce : hipster-shop
+so we will label the namespace : hipster-shop
 ```
 kubectl label namespace hipster-shop istio-injection=enabled
 ```
@@ -176,7 +176,7 @@ RUN gem install fluent-plugin-concat
 In our tutorial i already have build the docker image and pushed it on docker hub.
 We will use the following image : ```hrexed/fluentd-dyantrace:0.2```
 #### 2. Generate a Platfrom as a Service Token in Dynatrace
-THe log ingest api of dynatrace is reachable only from the Active Gate.
+The log ingest api of dynatrace is reachable only from the Active Gate.
 To deploy the active Gate, it would be required to generate a Paas Token:
 In dynatrace click :
 * Settings
@@ -186,7 +186,7 @@ In dynatrace click :
 <p align="center"><img src="/image/paas.png" width="60%" alt="dt api scope" /></p>
 
 #### 3. Generate API Token in Dynatrace
-Follow the instruction described in [dynatrace's documentation](https://www.dynatrace.com/support/help/shortlink/api-authentication#generate-a-token)
+Follow the instruction described in [dynatrace's documentation](https://www.dynatrace.com/support/help/shortlink/api-authentication#generate-a-token).
 Make sure that the scope log ingest is enabled.
 <p align="center"><img src="/image/api_rigth.png" width="60%" alt="dt api scope" /></p>
 
@@ -194,7 +194,7 @@ Make sure that the scope log ingest is enabled.
 ```
 kubectl get namespace kube-system -o jsonpath='{.metadata.uid}'
 ```
-#### 5. update the deployment of fluend and of the active gate
+#### 5. Update the deployment of fluend and of the active gate
 
 * Create a service account and cluster role for accessing the Kubernetes API.
 ```
@@ -270,11 +270,11 @@ the input plugin tail :
     </source>
 ```
 Let's have a look a the log ingested in Dynatrace.
-Open Dynatrace and click Logs on the left menu .
+Open Dynatrace and click Logs on the left menu.
 <p align="center"><img src="/image/logsviewer.PNG" width="60%" alt="dt api scope" /></p>
 
 ### 6. Let's add Fluentbit
-#### 1. let's deploy Fluentbit
+#### 1. Let's deploy Fluentbit
 ```
 kubectl create namespace logging
 kubectl create -f https://raw.githubusercontent.com/fluent/fluent-bit-kubernetes-logging/master/fluent-bit-service-account.yaml
@@ -285,9 +285,9 @@ kubectl create -f https://raw.githubusercontent.com/fluent/fluent-bit-kubernetes
 ```
 kubectl delete -f fluentd/fluentd-manifest.yaml
 ```
-now let's use the fluentd deployment using the input forward plugin
+Now let's use the fluentd deployment using the input forward plugin.
 But we need to update all the information to connect to dynatrace.
-let's update the deployment :
+Let's update the deployment :
  ```
 sed -i "s,ENVIRONMENT_ID_TO_REPLACE,$ENVIRONMENT_ID," fluentbit/fluentd-manifest_with_fluentbit.yaml
 sed -i "s,CLUSTER_ID_TO_REPLACE,$CLUSTERID," fluentbit/fluentd-manifest_with_fluentbit.yaml
