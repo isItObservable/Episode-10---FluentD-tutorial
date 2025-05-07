@@ -1,4 +1,4 @@
-# [How to collect logs with Fluentd]
+# How to collect logs with Fluentd
 
 
 This repository is here to guide you through the GitHub tutorial that goes hand-in-hand with a video available on YouTube and a detailed blog post on my website. 
