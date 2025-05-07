@@ -1,36 +1,45 @@
-# Is it Observable 
-<p align="center"><img src="/image/logo.png" width="40%" alt="Is It observable Logo" /></p>
+# [How to collect logs with Fluentd]
 
-## Episode 13: FluentD 
-<p align="center"><img src="/image/Fluentd.png" width="40%" alt="fluentd Logo" /></p>
-This repository contains the files utilized during the tuorial delivered during the episode 13 of Is it Observable?
 
-What you will learn
-* How to build a customize fluentd container with the dynatrace plugin
-* How to deploy fluentd in a kubernetes cluster using Configmap
-* How to ingest metrics using the dynatrace output plugin
-* How to chain fluentbit and fluentd
+This repository is here to guide you through the GitHub tutorial that goes hand-in-hand with a video available on YouTube and a detailed blog post on my website. 
+Together, these resources are designed to give you a complete understanding of the topic.
 
-This repository showcase the usage of the fluend by using GKE with :
+
+Here are the links to the related assets:
+- YouTube Video: [How to collect logs with Fluentd](https://www.youtube.com/watch?v=j76ozzIbuO8)
+- Blog Post: [How to collect logs with Fluentd](https://isitobservable.io/observability/kubernetes/how-to-collect-logs-with-fluentd)
+
+
+Feel free to explore the materials, star the repository, and follow along at your own pace.
+
+## Tutorial begins
+
+What you'll learn
+* How to build a customized Fluentd container with the Dynatrace plugin
+* How to deploy Fluentd in a Kubernetes cluster using a Configmap
+* How to ingest metrics using the Dynatrace output plugin
+* How to chain Fluent Bit and Fluentd
+
+This repository showcases the usage of Fluentd by using GKE with:
 * the HipsterShop
 * Prometheus
 * Istio
-* fluentd
+* Fluentd
 * Dynatrace
 
 
 ## Prerequisite 
-The following tools need to be install on your machine :
+The following tools need to be installed on your machine:
 - jq
 - kubectl
 - git
-- gcloud ( if you are using GKE)
+- gcloud (if you're using GKE)
 - Helm
 
 ## Requirements
-If you don't have any dynatrace tenant , then let's start a [trial on Dynatrace](https://www.dynatrace.com/trial/)
+If you don't have any Dynatrace tenant, then let's start a [trial on Dynatrace](https://www.dynatrace.com/trial/)
 
-## 1.Create a Google Cloud Platform Project
+## 1. Create a Google Cloud Platform Project
 ```
 PROJECT_ID="<your-project-id>"
 gcloud services enable container.googleapis.com --project ${PROJECT_ID}
@@ -40,21 +49,21 @@ clouddebugger.googleapis.com \
 cloudprofiler.googleapis.com \
 --project ${PROJECT_ID}
 ```
-## 2.Create a GKE cluster
+## 2. Create a GKE cluster
 ```
 ZONE=us-central1-b
 gcloud container clusters create onlineboutique \
 --project=${PROJECT_ID} --zone=${ZONE} \
 --machine-type=e2-standard-2 --num-nodes=4
 ```
-## 3.Clone Github repo
+## 3. Clone the GitHub repo
 ```
 git clone https://github.com/isItObservable/Episode-10---FluentD-tutorial.git
 cd Episode-10---FluentD-tutorial
 ```
 ## 4. Deploy the sample Application
 
-### 0. Istio
+### Istio
 0. Create the various namespaces
 For the hipsterShop :
 ```
@@ -66,27 +75,27 @@ For the hipsterShop :
 ```
 curl -L https://istio.io/downloadIstio | sh -
 ```
-This command download the latest version of istio ( in our case iostio 1.10.2) compatible with our operating system.
-2. Add istioctl to you PATH
+This command downloads the latest version of Istio (in our case, Istio 1.10.2) compatible with our operating system.
+2. Add istioctl to your PATH
 ```
 cd istio-1.10.3
 ```
-this directory contains samples with addons . We will refer to it later.
+This directory contains samples with addons. We will refer to it later.
 ```
 export PATH=$PWD/bin:$PATH
 ```
 ### 1. Install Istio
 
 #### a. Deployment of Istio
-To enable Istio , you need to install istio with the following settings
+To enable Istio, you need to install istio with the following settings
  ```
 istioctl install --set profile=demo -y
  ```
 
 #### b. Label the hipster-shop namespace
 
-Then we want to instruct istio to automatically inject the envoy Proxy to all the pods of our Hipster-shop application
-so we will label the namesapce : hipster-shop
+Then we want to instruct Istio to automatically inject the Envoy Proxy into all the pods of our Hipster-shop application
+So we will label the namespace: hipster-shop
 ```
 kubectl label namespace hipster-shop istio-injection=enabled
 ```
@@ -97,7 +106,7 @@ cd hipstershop
 ./setup.sh
 ```
 
-#### Update the ingressgateway to expose ports for sockshop
+#### Update the ingress gateway to expose ports for the sockshop
 ```
 kubectl edit svc istio-ingressgateway -n istio-system
 ```
@@ -116,13 +125,13 @@ kubectl apply -f istio/hipstershop_gateway.yaml
 ```
 
 ### 3. Deploy Prometheus
-#### 1.Prometheus
+#### 1. Prometheus
 ```
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 helm install prometheus prometheus-community/kube-prometheus-stack 
 ```
-#### 2.Expose Grafana
+#### 2. Expose Grafana
 ```
 kubectl edit svc istio-ingressgateway -n istio-system
 ```
@@ -134,7 +143,7 @@ Add the following ports :
   protocol: TCP
   targetPort: 8888
 ```
-#### 3.Expose Prometheus server
+#### 3. Expose the Prometheus server
 ```
 kubectl edit svc istio-ingressgateway -n istio-system
 ```
@@ -153,48 +162,48 @@ kubectl apply -f istio/Prometheus_Grafana_gateway.yaml
 ```
 ### 4. FluentD
 
-#### 1. Generate the docker File 
+#### 1. Generate the Docker file 
 
-In order to deliver our tutorial we need a fluentd version having the following plugins preinstalled :
-- the input plugin : forward ( to connect later on fluentbit with fluentd)
-- the output plugin [dynatrace](https://github.com/dynatrace-oss/fluent-plugin-dynatrace)
+In order to deliver our tutorial, we need a Fluentd version having the following plugins preinstalled :
+- the input plugin: forward ( to connect later on fluentbit with fluentd)
+- the output plugin: [dynatrace](https://github.com/dynatrace-oss/fluent-plugin-dynatrace)
 
-To combine both plugins we are going to build the new image based from `fluentd-kubernetes-daemonset:v1.14.1-debian-forward-1.0`
+To combine both plugins, we're going to build the new image based on `fluentd-kubernetes-daemonset:v1.14.1-debian-forward-1.0`
 
-To build the image you will need to require to install docker on your laptop : [docker desktop](https://www.docker.com/get-started)
+To build the image you need to install Docker on your laptop: [docker desktop](https://www.docker.com/get-started)
 ```
 cd /fluentd
 docker build . -t fluentd-dyantrace:0.1
 ```
-The dockerfile only add the installation of the the library with this commad :
+The Dockerfile only adds the installation of the library with this command:
 ```
 RUN gem install fluent-plugin-dynatrace -v 0.1.5
 RUN gem install fluent-plugin-kubernetes_metadata_filter -v 2.7.2
 RUN gem install fluent-plugin-multi-format-parser
 RUN gem install fluent-plugin-concat
 ```
-In our tutorial i already have build the docker image and pushed it on docker hub.
-We will use the following image : ```hrexed/fluentd-dyantrace:0.2```
-#### 2. Generate a Platfrom as a Service Token in Dynatrace
-THe log ingest api of dynatrace is reachable only from the Active Gate.
-To deploy the active Gate, it would be required to generate a Paas Token:
-In dynatrace click :
+In our tutorial, I have already built the Docker image and pushed it to Docker Hub.
+We will use the following image: ```hrexed/fluentd-dyantrace:0.2```
+#### 2. Generate a Platform as a Service Token in Dynatrace
+The log ingest API of Dynatrace is reachable only from the Active Gate.
+To deploy the Active Gate, it would be required to generate a PaaS Token:
+In Dynatrace, click:
 * Settings
 * Integration
-* click on the button Generate 
-* Give a name and copy the value of the Paas Token
+* Generate 
+* Give a name and copy the value of the PaaS Token
 <p align="center"><img src="/image/paas.png" width="60%" alt="dt api scope" /></p>
 
 #### 3. Generate API Token in Dynatrace
-Follow the instruction described in [dynatrace's documentation](https://www.dynatrace.com/support/help/shortlink/api-authentication#generate-a-token)
+Follow the instructions described in the [Dynatrace documentation](https://www.dynatrace.com/support/help/shortlink/api-authentication#generate-a-token)
 Make sure that the scope log ingest is enabled.
 <p align="center"><img src="/image/api_rigth.png" width="60%" alt="dt api scope" /></p>
 
-#### 4. Get the cluster id of your K8s cluster
+#### 4. Get the cluster ID of your K8s cluster
 ```
 kubectl get namespace kube-system -o jsonpath='{.metadata.uid}'
 ```
-#### 5. update the deployment of fluend and of the active gate
+#### 5. Update the deployment of Fluentd and of the active gate
 
 * Create a service account and cluster role for accessing the Kubernetes API.
 ```
@@ -242,8 +251,7 @@ Provide a Name, Kubernetes API URL, and the Bearer token for the Kubernetes clus
 
 ### 4. Logs ingested in dynatrace
 
-The current deployment of fluentd is collecting the logs from the kubernetes cluster using
-the input plugin tail :
+The current deployment of Fluentd is collecting the logs from the Kubernetes cluster using the input plugin tail :
 ```
     <source>
       @id in_tail_container_logs
@@ -274,29 +282,29 @@ Open Dynatrace and click Logs on the left menu .
 <p align="center"><img src="/image/logsviewer.PNG" width="60%" alt="dt api scope" /></p>
 
 ### 6. Let's add Fluentbit
-#### 1. let's deploy Fluentbit
+#### 1. Deploy Fluentbit
 ```
 kubectl create namespace logging
 kubectl create -f https://raw.githubusercontent.com/fluent/fluent-bit-kubernetes-logging/master/fluent-bit-service-account.yaml
 kubectl create -f https://raw.githubusercontent.com/fluent/fluent-bit-kubernetes-logging/master/fluent-bit-role.yaml
 kubectl create -f https://raw.githubusercontent.com/fluent/fluent-bit-kubernetes-logging/master/fluent-bit-role-binding.yaml
 ```
-#### 2. Update the fluentd deployment
+#### 2. Update the Fluentd deployment
 ```
 kubectl delete -f fluentd/fluentd-manifest.yaml
 ```
-now let's use the fluentd deployment using the input forward plugin
-But we need to update all the information to connect to dynatrace.
-let's update the deployment :
+Now let's use the Fluentd deployment using the input forward plugin
+But we need to update all the information to connect to Dynatrace.
+Let's update the deployment :
  ```
 sed -i "s,ENVIRONMENT_ID_TO_REPLACE,$ENVIRONMENT_ID," fluentbit/fluentd-manifest_with_fluentbit.yaml
 sed -i "s,CLUSTER_ID_TO_REPLACE,$CLUSTERID," fluentbit/fluentd-manifest_with_fluentbit.yaml
  ```
-Now we can deploy the new fluend log stream pipeline
+Now we can deploy the new Fluentd log stream pipeline
  ```
 kubectl apply -f fluentbit/fluentd-manifest_with_fluentbit.yaml
  ```
-#### 3. deploy Fluentbit
+#### 3. Deploy Fluent Bit
 ```
 kubectl apply -f fluentbit/fluentbit_deployment.yaml 
 ```
